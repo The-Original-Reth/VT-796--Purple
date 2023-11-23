@@ -1,0 +1,780 @@
+# This file contains common pin mappings for the BigTreeTech Octopus V1.
+# To use this config, the firmware should be compiled for the STM32F446 with a "32KiB bootloader"
+# Enable "extra low-level configuration options" and select the "12MHz crystal" as clock reference
+
+# after running "make", copy the generated "klipper/out/klipper.bin" file to a
+# file named "firmware.bin" on an SD card and then restart the OctoPus with that SD card.
+
+# See docs/Config_Reference.md for a description of parameters.
+
+## Voron Design Trident 250/300/350mm BigTreeTech OctoPus V1 TMC2209 UART config
+
+## *** THINGS TO CHANGE/CHECK: ***
+## MCU paths                            [mcu] section
+## Thermistor types                     [extruder] and [heater_bed] sections - See https://www.klipper3d.org/Config_Reference.html#common-thermistors for common thermistor types
+## Leadscrew Rotation Distance          [stepper_z], [stepper_z1], [stepper_z2]
+## Z Endstop Switch location            [safe_z_home] section
+## Z Endstop Switch  offset for Z0      [stepper_z] section
+## PID tune                             [extruder] and [heater_bed] sections
+## Probe pin                            [probe] section
+## Fine tune E steps                    [extruder] section
+
+###root folder###
+[include mainsail.cfg] # order of include matters. Mainsail contains a pause. If below Pause/Resume it will override pause/resume
+[include timelapse.cfg]
+[include autotune_tmc.cfg]  #tmc_autotune
+###filter folder###
+[include filter/exhaust_filter_timer.cfg]
+[include filter/fan_control.cfg]
+[include filter/nevermore_filter_timer.cfg]
+######################
+#scripts folder
+######################
+[include scripts/shell_commands.cfg]
+######################
+#frix_x folder
+######################
+[include scripts/reshelper.cfg]
+#
+[include frix_x/IS_shaper_calibrate.cfg]
+[include frix_x/IS_vibrations_measurement.cfg] 
+[include frix_x/flow_calibrate.cfg]
+[include frix_x/pa_calibrate.cfg]
+######################
+###macros folder###
+######################
+[include macros/stealthburner_leds.cfg]
+#[include macros/bed_mesh.cfg]
+[include macros/adaptive_bed_mesh.cfg]
+[include macros/print_start_end.cfg]
+[include macros/case_led.cfg]
+[include macros/pause_resume.cfg]
+[include macros/adaptive_purge.cfg]
+[include macros/parking.cfg]
+[include macros/homing.cfg]
+[include macros/filament_list.cfg]
+[include macros/filament_sensor.cfg]
+[include macros/line_purge.cfg]
+[include macros/test_probe_accuracy.cfg]
+[include macros/heatsoak_chamber.cfg]
+[include macros/test_speed.cfg]
+
+#Saved Variables
+[save_variables]
+filename: ~/printer_data/config/saved_variables.cfg
+
+[exclude_object]
+
+[respond]
+default_type: echo
+
+[gcode_shell_command plot_graph]
+command: bash /home/pi/printer_data/config/scripts/plot_graphs.sh
+timeout: 500.0
+verbose: True
+
+[duplicate_pin_override]
+#used to display frame_temp in dashboard
+#allows one to use the same pin multiple times
+pins: PF6, PF4 #, ercf:gpio25            #frame_temp and chamber_temp
+
+#########################
+#MCU's
+#########################
+[mcu]
+##  Obtain definition by "ls -l /dev/serial/by-id/" then unplug to verify
+##--------------------------------------------------------------------
+serial: /dev/serial/by-id/usb-Klipper_stm32f446xx_470034000750314D35323820-if00
+restart_method: command
+##--------------------------------------------------------------------
+
+#[mcu mellow_sb2040]
+##Obtain canbus_uuid with "~/klippy-env/bin/python ~/klipper/scripts/canbus_query.py can0"
+#can bus status "ip -s link show can0"
+#canbus_uuid: edb78ba13894                  #mellow Sb2040 can bus board
+[mcu ebb36]
+canbus_uuid: c417f75e531c
+
+#########################
+#Printer Constants
+#########################
+
+[printer]
+kinematics: corexy
+max_velocity:500 
+max_accel:5000 #y input shaper 6000
+max_accel_to_decel:5000
+max_z_velocity: 15          #Max 15 for 12V TMC Drivers, can increase for 24V
+max_z_accel: 350
+square_corner_velocity: 5.0
+
+[adxl345]
+ cs_pin: ebb36:PB12
+ spi_software_sclk_pin: ebb36:PB10
+ spi_software_mosi_pin: ebb36:PB11
+ spi_software_miso_pin: ebb36:PB2
+ axes_map: x,z,y
+
+[resonance_tester]
+accel_chip: adxl345
+probe_points:
+    150, 150, 20  # an example
+accel_per_hz: 75
+
+[input_shaper]
+shaper_freq_x: 66.8
+shaper_type_x: mzv
+damping_ratio_x: 0.0424
+#accel_x: 13,100
+shaper_freq_y: 45.0
+shaper_type_y: mzv
+damping_ratio_y: 0.0493
+#accel_y: 6,000
+
+#####################################################################
+#   X/Y Stepper Settings
+#####################################################################
+
+##  B Stepper - Left
+##  Connected to MOTOR_0
+##  Endstop connected to DIAG_0
+[stepper_x]
+step_pin: PF13
+dir_pin: PF12
+enable_pin: !PF14
+rotation_distance: 40
+microsteps: 32
+full_steps_per_rotation: 400  #set to 200 for 1.8 degree stepper
+#endstop_pin: ^PG6
+endstop_pin: ~ebb36:PB6
+position_min: 0
+
+##  Uncomment for 300mm build
+position_endstop: 300
+position_max: 300
+
+homing_speed: 40  #Max 100 default 25
+homing_retract_dist: 5
+homing_positive_dir: true
+
+##  Make sure to update below for your relevant driver (2208 or 2209)
+[tmc2209 stepper_x]
+uart_pin: PC4
+interpolate: False
+run_current: 0.8
+sense_resistor: 0.110
+stealthchop_threshold: 0
+
+##  A Stepper - Right
+##  Connected to MOTOR_1
+##  Endstop connected to DIAG_1
+[stepper_y]
+step_pin: PG0
+dir_pin: PG1
+enable_pin: !PF15
+rotation_distance: 40
+microsteps: 32
+full_steps_per_rotation: 400  #set to 200 for 1.8 degree stepper
+endstop_pin: PG9
+position_min: 0
+##--------------------------------------------------------------------
+##  Uncomment for 300mm build
+position_endstop: 305
+position_max: 308 #302.5
+##--------------------------------------------------------------------
+homing_speed: 60  #Max 100 default 25
+homing_retract_dist: 5
+homing_positive_dir: true
+
+##  Make sure to update below for your relevant driver (2208 or 2209)
+[tmc2209 stepper_y]
+uart_pin: PD11
+interpolate: False
+run_current: 0.8
+sense_resistor: 0.110
+stealthchop_threshold: 0
+ 
+#####################################################################
+#   Z Stepper Settings
+#####################################################################
+
+##  Z0 Stepper - Front Left
+##  Connected to MOTOR_2
+##  Endstop connected to DIAG_2
+[stepper_z]
+step_pin: PF11
+dir_pin: !PG3
+enable_pin: !PG5
+rotation_distance: 4    #specific to motor (LDO300 is TR8x4) Rotation Distance for TR8x8 = 8, TR8x4 = 4, TR8x2 = 2
+microsteps: 128
+full_steps_per_rotation: 200
+endstop_pin: probe:z_virtual_endstop
+position_max: 270 ## For LDO 300^3 kits use 290, for 250^3 kits use 240
+position_min: -2.5
+homing_speed: 5.0 # Leadscrews are slower than 2.4, 10 is a recommended max.
+second_homing_speed: 3
+homing_retract_dist: 3
+
+##  Make sure to update below for your relevant driver (2208 or 2209)
+[tmc2209 stepper_z]
+uart_pin: PC6
+interpolate: False
+run_current: 0.6
+sense_resistor: 0.110
+stealthchop_threshold: 0
+
+##  Z1 Stepper - Rear Center
+##  Connected to MOTOR_3
+[stepper_z1]
+step_pin: PG4
+dir_pin: !PC1
+enable_pin: !PA0
+rotation_distance: 4  #specific to motor (LDO300 is TR8x4) Rotation Distance for TR8x8 = 8, TR8x4 = 4, TR8x2 = 2
+microsteps: 128
+full_steps_per_rotation: 200
+
+##  Make sure to update below for your relevant driver (2208 or 2209)
+[tmc2209 stepper_z1]
+uart_pin: PC7
+interpolate: False
+run_current: 0.6
+sense_resistor: 0.110
+stealthchop_threshold: 0
+
+##  Z2 Stepper - Front Right
+##  Connected to MOTOR_4
+[stepper_z2]
+step_pin: PF9
+dir_pin: !PF10
+enable_pin: !PG2
+rotation_distance: 4  #specific to motor (LDO300 is TR8x4) Rotation Distance for TR8x8 = 8, TR8x4 = 4, TR8x2 = 2
+microsteps: 128
+full_steps_per_rotation: 200
+
+##  Make sure to update below for your relevant driver (2208 or 2209)
+[tmc2209 stepper_z2]
+uart_pin: PF2
+interpolate: False
+run_current: 0.6
+sense_resistor: 0.110
+stealthchop_threshold: 0
+
+
+#####################################################################
+#   Extruder
+#####################################################################
+
+#   Connected to MOTOR_5
+#   Heater - BED_OUT
+#   Thermistor - T0
+[extruder]
+step_pin: ebb36:PD0
+dir_pin: ebb36:PD1
+enable_pin: !ebb36:PD2
+rotation_distance:  4.637 
+microsteps: 16
+full_steps_per_rotation: 200    #200 for 1.8 degree, 400 for 0.9 degree
+nozzle_diameter: 0.400
+filament_diameter: 1.75
+heater_pin: ebb36:PB13
+sensor_type:  ATC Semitec 104NT-4-R025H42G #for revo and rapido
+sensor_pin: ebb36:PA3
+min_temp: 0
+max_temp: 270
+max_power: 1.0
+min_extrude_temp: 185
+max_extrude_only_distance: 500 #1400 #200
+max_extrude_only_velocity: 120 #75
+max_extrude_cross_section: 1.44 
+pressure_advance: 0.025
+pressure_advance_smooth_time: 0.03
+max_extrude_cross_section: 5   #for adaptive_purge
+
+[tmc2209 extruder]
+uart_pin: ebb36:PA15
+interpolate: true
+run_current: 0.70 #default orbiter 0.85   # for LDO 36STH20-1004AHG
+hold_current: 0.100
+sense_resistor: 0.110
+stealthchop_threshold: 0                # Set to 0 for spreadcycle, avoid using stealthchop on extruder
+driver_TBL: 0
+driver_HEND: 6
+driver_HSTRT: 7
+driver_TOFF: 4
+
+#####################################################################
+#   Bed Heater
+#####################################################################
+
+[heater_bed]
+##  SSR Pin - HE0
+##  Thermistor - TB
+heater_pin: PA2
+## Check what thermistor type you have. See https://www.klipper3d.org/Config_Reference.html#common-thermistors for common thermistor types.
+## Use "Generic 3950" for Keenovo heaters
+## LDO heaters have their sensor type labelled on the heater
+sensor_type: ATC Semitec 104NT-4-R025H42G
+sensor_pin: PF3
+##  Adjust Max Power so your heater doesn't warp your bed. Rule of thumb is 0.4 watts / cm^2 .
+max_power: 0.6
+min_temp: 0
+max_temp: 120
+#control: pid
+#pid_kp: 58.437
+#pid_ki: 2.347
+#pid_kd: 363.769
+
+[verify_heater heater_bed]
+#max_error: 120
+#   The maximum "cumulative temperature error" before raising an
+#   error. Smaller values result in stricter checking and larger
+#   values allow for more time before an error is reported.
+#   Specifically, the temperature is inspected once a second and if it
+#   is close to the target temperature then an internal "error
+#   counter" is reset; otherwise, if the temperature is below the
+#   target range then the counter is increased by the amount the
+#   reported temperature differs from that range. Should the counter
+#   exceed this "max_error" then an error is raised. The default is
+#   120.
+check_gain_time: 90 #default 60
+#   This controls heater verification during initial heating. Smaller
+#   values result in stricter checking and larger values allow for
+#   more time before an error is reported. Specifically, during
+#   initial heating, as long as the heater increases in temperature
+#   within this time frame (specified in seconds) then the internal
+#   "error counter" is reset. The default is 20 seconds for extruders
+#   and 60 seconds for heater_bed.
+#hysteresis: 5
+#   The maximum temperature difference (in Celsius) to a target
+#   temperature that is considered in range of the target. This
+#   controls the max_error range check. It is rare to customize this
+#   value. The default is 5.
+#heating_gain: 2
+#   The minimum temperature (in Celsius) that the heater must increase
+#   by during the check_gain_time check. It is rare to customize this
+#   value. The default is 2.
+#####################################################################
+#   Probe
+#####################################################################
+
+[probe]
+pin: ^ebb36:PB9
+x_offset: 0
+y_offset: 0.0
+#z_offset: 0
+speed: 10.0
+samples: 1 #3 
+samples_result: median
+sample_retract_dist: 3.0
+samples_tolerance: 0.006 
+samples_tolerance_retries: 3
+activate_gcode:
+    {% set PROBE_TEMP = 150 %}
+    {% set MAX_TEMP = PROBE_TEMP + 5 %}
+    {% set ACTUAL_TEMP = printer.extruder.temperature %}
+    {% set TARGET_TEMP = printer.extruder.target %}
+
+    {% if TARGET_TEMP > PROBE_TEMP %}
+        { action_respond_info('Extruder temperature target of %.1fC is too high, lowering to %.1fC' % (TARGET_TEMP, PROBE_TEMP)) }
+        M109 S{ PROBE_TEMP }
+    {% else %}
+        # Temperature target is already low enough, but nozzle may still be too hot.
+        {% if ACTUAL_TEMP > MAX_TEMP %}
+            { action_respond_info('Extruder temperature %.1fC is still too high, waiting until below %.1fC' % (ACTUAL_TEMP, MAX_TEMP)) }
+            TEMPERATURE_WAIT SENSOR=extruder MAXIMUM={ MAX_TEMP }
+        {% endif %}
+    {% endif %}
+
+#####################################################################
+#   voron-klipper-extension
+#####################################################################
+#https://github.com/voidtrance/voron-klipper-extensions
+[settling_probe]
+settling_sample: True
+#   Globally enable the throw-away settling sample. Default is 'False'.
+#   Setting this to 'True' will enable the throw-away sample for all
+#   commands/operations that perform Z probing (QGL, Z tilt, Bed Mesh,
+#   Screw Tilt, etc.)
+
+#####################################################################
+#   pause_resume
+#####################################################################
+[pause_resume]
+recover_velocity: 50
+#   When capture/restore is enabled, the speed at which to return to
+#   the captured position (in mm/s). Default is 50.0 mm/s.
+
+#####################################################################
+#   Fan Control
+#####################################################################
+
+[fan] 
+##  Print Cooling Fan - CNC_FAN0
+#pin: PA8
+pin: ebb36:PA0
+max_power: 1.0
+kick_start_time: 0.5
+##  Depending on your fan, you may need to increase this value
+##  if your fan will not start. Can change cycle_time (increase)
+##  if your fan is not able to slow down effectively
+off_below: 0.10
+
+[fan_generic bed_fan]
+##  Print Cooling Fan - FAN0
+pin: PA8
+max_power: 1.0
+kick_start_time: 5.0
+
+[heater_fan hotend_fan]
+##  Hotend Fan - FAN1
+#pin: PE5
+pin: ebb36:PA1
+max_power: 1.0
+kick_start_time: 0.5
+heater: extruder
+heater_temp: 50.0
+##  If you are experiencing back flow, you can reduce fan_speed
+#fan_speed: 1.0
+
+[controller_fan controller_fan]
+##  Controller fan - FAN2
+pin: PD12
+kick_start_time: 0.5
+heater: heater_bed,extruder
+fan_speed: 0.75    #default 0.5
+stepper: stepper_x,stepper_y,stepper_z,stepper_z1,stepper_z2,extruder
+idle_timeout: 15
+
+[fan_generic nevermore]
+#nevermore filter
+pin: PD13
+max_power: 1.0
+kick_start_time: 5.0
+
+#####################################################################
+#   LED Control
+#####################################################################
+
+[output_pin caselight]
+## Chamber Lighting - FAN5
+pin: PD15
+pwm:true
+shutdown_value: 0
+value:0
+cycle_time: 0.001
+scale: 1
+
+#####################################################################
+#   Frame compensation
+#####################################################################
+# [z_thermal_adjust]
+# temp_coeff: 0.0089
+# #   The temperature coefficient of expansion, in mm/degC. For example, a
+# #   temp_coeff of 0.01 mm/degC will move the Z axis downwards by 0.01 mm for
+# #   every degree Celsius that the temperature sensor increases. Defaults to
+# #   0.0 mm/degC, which applies no adjustment.
+# #smooth_time:
+# #   Smoothing window applied to the temperature sensor, in seconds. Can reduce
+# #   motor noise from excessive small corrections in response to sensor noise.
+# #   The default is 2.0 seconds.
+# #z_adjust_off_above:
+# #   Disables adjustments above this Z height [mm]. The last computed correction
+# #   will remain applied until the toolhead moves below the specified Z height
+# #   again. The default is 99999999.0 mm (always on).
+# #max_z_adjustment:
+# #   Maximum absolute adjustment that can be applied to the Z axis [mm]. The
+# #   default is 99999999.0 mm (unlimited).
+# ### Frame Temperature sensor
+# sensor_type: ATC Semitec 104NT-4-R025H42G
+# sensor_pin: PF6
+# min_temp: 0
+# max_temp: 100
+# gcode_id: frame_th
+
+#####################################################################
+# 	Temperaure Sensors
+#####################################################################
+[temperature_sensor mcu_temp]
+##octupus temp
+sensor_type: temperature_mcu
+max_temp: 100
+sensor_mcu: mcu
+
+[temperature_sensor raspberry_pi]
+sensor_type: temperature_host
+max_temp: 100
+gcode_id: pi_th
+
+[temperature_sensor ebb36]
+sensor_type: temperature_mcu
+sensor_mcu: ebb36
+max_temp: 100
+gcode_id: ebb36_th
+
+[temperature_sensor ebb36]
+sensor_type: temperature_mcu
+sensor_mcu: ebb36
+max_temp: 100
+gcode_id: ebb36_th
+
+[temperature_sensor chamber_temp]
+sensor_type: Generic 3950
+sensor_pin: PF4
+min_temp: 0
+max_temp: 100
+gcode_id: chamber_th
+
+[temperature_sensor frame_temp]
+sensor_type: ATC Semitec 104NT-4-R025H42G
+sensor_pin: PF6
+min_temp: 0
+max_temp: 100
+
+#####################################################################
+#   Homing and Gantry Adjustment Routines
+#####################################################################
+[idle_timeout]
+timeout: 1800
+
+[safe_z_home]
+##  XY Location of the Z Endstop Switch
+##  Update -10,-10 to the XY coordinates of your endstop pin 
+##  (such as 157,305) after going through Z Endstop Pin
+##  Location Definition step.
+home_xy_position: 150,150
+speed:100
+z_hop:10
+z_hop_speed:10
+
+# [z_tilt]
+# ##  Use Z_TILT_ADJUST to level the bed .
+# ##  z_positions: Location of toolhead
+# ## Uncomment below for 300mm build
+# z_positions:
+#    -50, 18
+#    150, 348
+#    350, 18
+# points:
+#    30, 5 
+#    150, 245 
+#    270, 5 
+#   # 5,40
+#   # 150,290
+#    #295,40
+# speed: 250
+# horizontal_move_z: 10 #20
+# retries: 5
+# retry_tolerance: 0.0075 #0.0075 #0.005 works, but it may be hard to get it consistenly #default 0.005
+[z_tilt]
+##  Use Z_TILT_ADJUST to level the bed .
+##  z_positions: Location of toolhead
+
+## Uncomment below for 300mm build
+z_positions:
+   -50, 18
+   150, 348
+   350, 18
+points:
+   # 30, 5
+   # 150, 245
+   # 270, 5
+   10,35
+   150,290
+   290,35
+
+speed: 250
+horizontal_move_z: 10
+retries: 5
+retry_tolerance: 0.0075
+
+#####################################################################
+#   Bed Mesh
+#####################################################################
+[bed_mesh]
+speed: 250
+horizontal_move_z: 10 #20 #default 10
+mesh_min: 10, 35 #30, 5 
+mesh_max: 290, 290      # 270, 245 #295,290 
+probe_count: 7,7
+mesh_pps: 3,3 #required for adapative_bed_mesh.cfg
+algorithm: bicubic
+bicubic_tension: 0.2
+move_check_distance: 3.0
+
+###
+#for running frame thermal behavior
+###
+# speed: 400 
+# relative_reference_index: 24 
+#mesh_pps: 2,2 
+
+#split_delta_z: 0.010
+#fade_start: 1.0 
+#fade_end: 5.0 
+########################################
+# EXP1 / EXP2 (display) pins
+########################################
+[board_pins]
+aliases:
+    # EXP1 header
+    EXP1_1=PE8, EXP1_2=PE7,
+    EXP1_3=PE9, EXP1_4=PE10,
+    EXP1_5=PE12, EXP1_6=PE13,    # Slot in the socket on this side
+    EXP1_7=PE14, EXP1_8=PE15,
+    EXP1_9=<GND>, EXP1_10=<5V>,
+
+    # EXP2 header
+    EXP2_1=PA6, EXP2_2=PA5,
+    EXP2_3=PB1, EXP2_4=PA4,
+    EXP2_5=PB2, EXP2_6=PA7,      # Slot in the socket on this side
+    EXP2_7=PC15, EXP2_8=<RST>,
+    EXP2_9=<GND>, EXP2_10=<5V>
+
+#####################################################################
+#   Displays
+#####################################################################
+
+##  Uncomment the display that you have
+#--------------------------------------------------------------------
+
+#[display]
+##  RepRapDiscount 128x64 Full Graphic Smart Controller
+#lcd_type: st7920
+#cs_pin: EXP1_4
+#sclk_pin: EXP1_5
+#sid_pin: EXP1_3
+#menu_timeout: 40
+#encoder_pins: ^EXP2_5, ^EXP2_3
+#click_pin: ^!EXP1_2
+
+#[output_pin beeper]
+#pin: EXP1_1
+
+#--------------------------------------------------------------------
+
+#[display]
+##  mini12864 LCD Display
+#lcd_type: uc1701
+#cs_pin: EXP1_3
+#a0_pin: EXP1_4
+#rst_pin: EXP1_5
+#encoder_pins: ^EXP2_5, ^EXP2_3
+#click_pin: ^!EXP1_2
+#contrast: 63
+#spi_software_miso_pin: EXP2_1
+#spi_software_mosi_pin: EXP2_6
+#spi_software_sclk_pin: EXP2_2
+
+#[neopixel btt_mini12864]
+##  To control Neopixel RGB in mini12864 display
+#pin: EXP1_6
+#chain_count: 3
+#initial_RED: 0.1
+#initial_GREEN: 0.5
+#initial_BLUE: 0.0
+#color_order: RGB
+
+##  Set RGB values on boot up for each Neopixel. 
+##  Index 1 = display, Index 2 and 3 = Knob
+#[delayed_gcode setdisplayneopixel]
+#initial_duration: 1
+#gcode:
+#        SET_LED LED=btt_mini12864 RED=1 GREEN=1 BLUE=1 INDEX=1 TRANSMIT=0
+#        SET_LED LED=btt_mini12864 RED=1 GREEN=0 BLUE=0 INDEX=2 TRANSMIT=0
+#        SET_LED LED=btt_mini12864 RED=1 GREEN=0 BLUE=0 INDEX=3 
+
+#--------------------------------------------------------------------
+
+#*# <---------------------- SAVE_CONFIG ---------------------->
+#*# DO NOT EDIT THIS BLOCK OR BELOW. The contents are auto-generated.
+#*#
+#*# [heater_bed]
+#*# control = pid
+#*# pid_kp = 42.417
+#*# pid_ki = 2.571
+#*# pid_kd = 174.968
+#*#
+#*# [extruder]
+#*# control = pid
+#*# pid_kp = 26.103
+#*# pid_ki = 3.000
+#*# pid_kd = 56.774
+#*#
+#*# [bed_mesh default]
+#*# version = 1
+#*# points =
+#*# 	  0.050625, 0.050156, 0.018594, -0.007500, -0.008125, -0.001406, 0.043594
+#*# 	  0.089375, 0.047656, 0.029531, 0.007344, -0.003594, 0.004531, 0.058594
+#*# 	  0.072500, 0.075469, 0.050625, 0.026250, -0.011563, 0.022812, 0.047500
+#*# 	  0.055625, 0.045156, 0.023281, -0.003594, -0.019531, -0.005156, 0.023125
+#*# 	  0.075312, 0.071094, 0.042031, -0.008906, -0.010938, 0.002031, 0.052812
+#*# x_count = 7
+#*# y_count = 5
+#*# mesh_x_pps = 3
+#*# mesh_y_pps = 3
+#*# algo = bicubic
+#*# tension = 0.2
+#*# min_x = 25.0
+#*# max_x = 274.0
+#*# min_y = 76.0
+#*# max_y = 189.0
+#*#
+#*# [probe]
+#*# z_offset = -0.570
+#*#
+#*# [bed_mesh COLD22.4]
+#*# version = 1
+#*# points =
+#*# 	0.015156, 0.000000, -0.047656, -0.067344, -0.017969
+#*# 	0.027500, 0.022500, 0.003594, -0.031719, -0.001875
+#*# 	0.067344, 0.026719, -0.012031, -0.024063, 0.012812
+#*# 	0.044062, 0.006875, -0.022500, -0.039688, 0.014844
+#*# 	0.047656, 0.045312, -0.005938, -0.004375, 0.045469
+#*# x_count = 5
+#*# y_count = 5
+#*# mesh_x_pps = 3
+#*# mesh_y_pps = 3
+#*# algo = bicubic
+#*# tension = 0.2
+#*# min_x = 40.0
+#*# max_x = 260.0
+#*# min_y = 40.0
+#*# max_y = 260.0
+#*#
+#*# [bed_mesh TEST46.2]
+#*# version = 1
+#*# points =
+#*# 	-0.003281, 0.000000, 0.033906, -0.039844, 0.033906
+#*# 	0.059375, -0.021250, -0.024844, -0.046406, 0.022031
+#*# 	0.030781, 0.018906, -0.020469, -0.040781, -0.007031
+#*# 	-0.018594, 0.022187, 0.007812, -0.039063, -0.026406
+#*# 	0.043594, 0.010000, 0.020781, -0.021563, -0.014219
+#*# x_count = 5
+#*# y_count = 5
+#*# mesh_x_pps = 3
+#*# mesh_y_pps = 3
+#*# algo = bicubic
+#*# tension = 0.2
+#*# min_x = 40.0
+#*# max_x = 260.0
+#*# min_y = 40.0
+#*# max_y = 260.0
+#*#
+#*# [bed_mesh HOT46.0]
+#*# version = 1
+#*# points =
+#*# 	-0.014062, 0.000000, -0.001719, -0.083906, 0.013594
+#*# 	0.018125, -0.038906, -0.053125, -0.070938, -0.017500
+#*# 	-0.007656, -0.037656, -0.045156, -0.071250, -0.032031
+#*# 	-0.045313, -0.008750, -0.038438, -0.057969, -0.054375
+#*# 	0.004062, -0.013281, -0.018438, -0.067656, -0.061094
+#*# x_count = 5
+#*# y_count = 5
+#*# mesh_x_pps = 3
+#*# mesh_y_pps = 3
+#*# algo = bicubic
+#*# tension = 0.2
+#*# min_x = 40.0
+#*# max_x = 260.0
+#*# min_y = 40.0
+#*# max_y = 260.0
